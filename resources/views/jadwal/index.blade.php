@@ -109,7 +109,8 @@
 
 <!-- Filter -->
 <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); border: 1px solid #e5e7eb;">
-    <form method="GET" action="{{ route('jadwal') }}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+    <form method="POST" action="{{ route('jadwal') }}" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+        @csrf
         <div>
             <label style="display: block; font-weight: 500; color: #374151; font-size: 0.85rem; margin-bottom: 0.5rem;">Bulan</label>
             <select name="bulan" class="form-input" style="font-size: 0.9rem;">
