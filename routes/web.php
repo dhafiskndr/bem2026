@@ -92,4 +92,15 @@ Route::middleware('auth')->group(function () {
         ]]);
         Route::get('/users/{user}/data', [UserController::class, 'getUser'])->name('users.data');
     });
+    
 });
+
+// R2 File Upload Test (tanpa login)
+Route::get('/upload-r2', function() {
+    return view('upload-r2');
+})->name('upload.r2');
+
+// R2 Config Test Page
+Route::get('/test-r2', function() {
+    return view('test-r2');
+})->name('test.r2');

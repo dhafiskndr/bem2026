@@ -69,7 +69,7 @@
                     <i class="fas fa-file-pdf" style="font-size: 2rem; color: #0c2340;"></i>
                     <div>
                         <p style="margin: 0 0 0.5rem 0; color: #0c2340; font-weight: 600;">File Terlampir</p>
-                        <a href="{{ asset('storage/' . $surat->file_path) }}" target="_blank" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                        <a href="https://{{ env('R2_BUCKET') }}.{{ str_replace('https://', '', env('R2_ENDPOINT')) }}/{{ $surat->file_path }}" target="_blank" class="btn btn-primary" style="padding: 0.5rem 1rem;">
                             <i class="fas fa-download"></i> Download File
                         </a>
                     </div>

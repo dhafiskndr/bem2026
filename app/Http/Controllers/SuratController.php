@@ -5,9 +5,76 @@ namespace App\Http\Controllers;
 use App\Models\Surat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Aws\S3\S3Client;
+use Aws\Exception\AwsException;
 
 class SuratController extends Controller
 {
+    /**
+     * Initialize S3 Client untuk R2
+     */
+    private function getS3Client()
+    {
+        return new S3Client([
+            'version' => 'latest',
+            'region'  => env('R2_REGION', 'auto'),
+            'endpoint' => env('R2_ENDPOINT'),
+            'credentials' => [
+                'key'    => env('R2_KEY'),
+                'secret' => env('R2_SECRET'),
+            ]
+        ]);
+    }
+
+    /**
+     * Upload file ke R2
+     */
+    private function uploadFileToR2($file)
+    {
+        try {
+            $s3Client = $this->getS3Client();
+            
+            // Buat nama file dengan timestamp
+            $originalName = $file->getClientOriginalName();
+            $filename = time() . '_' . $originalName;
+            $key = 'surats/' . $filename;
+            $bucket = env('R2_BUCKET');
+            
+            // Upload ke R2
+            $result = $s3Client->putObject([
+                'Bucket' => $bucket,
+                'Key'    => $key,
+                'Body'   => fopen($file->getRealPath(), 'r'),
+                'ACL'    => 'public-read',
+            ]);
+            
+            return $key; // Return path di R2
+            
+        } catch (AwsException $e) {
+            \Log::error('R2 Upload Error', ['message' => $e->getMessage()]);
+            throw new \Exception('Gagal upload file ke R2: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Delete file dari R2
+     */
+    private function deleteFileFromR2($key)
+    {
+        try {
+            $s3Client = $this->getS3Client();
+            
+            $s3Client->deleteObject([
+                'Bucket' => env('R2_BUCKET'),
+                'Key'    => $key
+            ]);
+            
+        } catch (AwsException $e) {
+            \Log::error('R2 Delete Error', ['message' => $e->getMessage()]);
+            // Tidak throw error, just log
+        }
+    }
+
     /**
      * Create a new controller instance.
      *
@@ -84,11 +151,15 @@ class SuratController extends Controller
             'file_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
         ]);
 
-        // Handle file upload
+        // Handle file upload to R2
         if ($request->hasFile('file_path')) {
-            $file = $request->file('file_path');
-            $path = $file->store('surats', 'public');
-            $validated['file_path'] = $path;
+            try {
+                $file = $request->file('file_path');
+                $path = $this->uploadFileToR2($file);
+                $validated['file_path'] = $path;
+            } catch (\Exception $e) {
+                return redirect()->route('surat')->with('error', 'Gagal upload file: ' . $e->getMessage());
+            }
         }
 
         $validated['created_by'] = Auth::user()->name;
@@ -143,11 +214,27 @@ class SuratController extends Controller
             'file_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
         ]);
 
-        // Handle file upload
+        // Handle file upload to R2
         if ($request->hasFile('file_path')) {
-            $file = $request->file('file_path');
-            $path = $file->store('surats', 'public');
-            $validated['file_path'] = $path;
+            try {
+                // Delete old file from R2 if exists
+                if ($surat->file_path) {
+                    $this->deleteFileFromR2($surat->file_path);
+                }
+                
+                // Upload new file
+                $file = $request->file('file_path');
+                $path = $this->uploadFileToR2($file);
+                $validated['file_path'] = $path;
+            } catch (\Exception $e) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Gagal upload file: ' . $e->getMessage(),
+                    ], 500);
+                }
+                return redirect()->back()->with('error', 'Gagal upload file: ' . $e->getMessage());
+            }
         }
 
         $surat->update($validated);
@@ -174,6 +261,11 @@ class SuratController extends Controller
     {
         if (Auth::user()->role === 'viewer') {
             abort(403, 'Anda tidak memiliki izin untuk menghapus surat.');
+        }
+
+        // Delete file from R2
+        if ($surat->file_path) {
+            $this->deleteFileFromR2($surat->file_path);
         }
 
         $surat->delete();

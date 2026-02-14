@@ -68,7 +68,7 @@
                 @if($surat->file_path)
                     <div style="margin-bottom: 1rem;">
                         <p style="margin: 0 0 0.5rem 0; color: #6b7280; font-size: 0.9rem;">File saat ini:</p>
-                        <a href="{{ asset('storage/' . $surat->file_path) }}" target="_blank" style="color: #667eea; text-decoration: none;">
+                        <a href="https://{{ env('R2_BUCKET') }}.{{ str_replace('https://', '', env('R2_ENDPOINT')) }}/{{ $surat->file_path }}" target="_blank" style="color: #667eea; text-decoration: none;">
                             <i class="fas fa-file"></i> Lihat File
                         </a>
                     </div>
